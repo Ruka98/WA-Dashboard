@@ -1,5 +1,7 @@
 import os
+import re
 import streamlit as st
+from annotated_text import annotated_text
 from rapidfuzz import process, fuzz
 from utils.data_loader import find_basins
 from utils.map_utils import combine_basin_boundaries
@@ -15,6 +17,32 @@ def pick_basin_name(names, query):
     if match and match[1] >= 70:
         return match[0]
     return None
+
+def render_annotated_overview(text: str):
+    """Parse overview text and highlight keywords using annotated_text."""
+
+    KEYWORDS = {
+        "Precipitation": "red", "P": "red",
+        "Evapotranspiration": "blue", "ETa": "blue",
+        "Land Use": "green", "LU": "green",
+        "Water Accounting": "orange", "WA": "orange",
+        "Basin": "purple",
+    }
+    pattern = re.compile(f"({'|'.join(re.escape(k) for k in KEYWORDS)})", re.IGNORECASE)
+    parts = pattern.split(text)
+
+    output = []
+    for part in parts:
+        match = pattern.fullmatch(part)
+        if match:
+            # Find which keyword was matched (case-insensitive) to get the color
+            key_matched = next(k for k in KEYWORDS if k.lower() == part.lower())
+            color = KEYWORDS[key_matched]
+            output.append((part, key_matched, color))
+        else:
+            output.append(part)
+    annotated_text(*output)
+
 
 def main():
     data_root = st.session_state.get("data_root")
@@ -33,11 +61,12 @@ def main():
         basin_name = st.selectbox("or pick from list", options=names, index=names.index(suggested) if suggested in names else 0)
         st.session_state["basin_name"] = basin_name
 
-        overview_txt = basins[basin_name].overview_txt
         st.markdown("### 📘 Overview")
-        if overview_txt and os.path.isfile(overview_txt):
-            with open(overview_txt, "r", encoding="utf-8", errors="ignore") as f:
-                st.write(f.read())
+        overview_txt_path = basins[basin_name].overview_txt
+        if overview_txt_path and os.path.isfile(overview_txt_path):
+            with open(overview_txt_path, "r", encoding="utf-8", errors="ignore") as f:
+                content = f.read()
+                render_annotated_overview(content)
         else:
             st.info("No `Overview.txt` found in this basin folder.")
 

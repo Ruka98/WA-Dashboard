@@ -1,6 +1,7 @@
 from __future__ import annotations
 import io
 from typing import Optional, Dict, Tuple
+import streamlit as st
 import numpy as np
 import xarray as xr
 import geopandas as gpd
@@ -10,18 +11,24 @@ import matplotlib.pyplot as plt
 import folium
 from folium.raster_layers import ImageOverlay
 
+@st.cache_data
 def mask_to_basin(da: xr.DataArray, basin_gdf: gpd.GeoDataFrame) -> xr.DataArray:
     """Clip/mask a 2D DataArray [lat, lon] to the basin polygon (assumes EPSG:4326)."""
+    # rioxarray requires the CRS to be set on both the DataArray and the GeoDataFrame.
+    # We can't be sure what the user has provided, so we'll standardize to EPSG:4326.
     if basin_gdf.crs is None:
-        basin_gdf = basin_gdf.set_crs(4326)
+        basin_gdf = basin_gdf.set_crs("EPSG:4326")
     else:
-        basin_gdf = basin_gdf.to_crs(4326)
+        basin_gdf = basin_gdf.to_crs("EPSG:4326")
+
     if not hasattr(da, "rio") or da.rio.crs is None:
-        da = da.rio.write_crs(4326, inplace=False)
+        da = da.rio.write_crs("EPSG:4326", inplace=False)
+
     geom = [mapping(geom) for geom in basin_gdf.geometry]
     clipped = da.rio.clip(geom, basin_gdf.crs, drop=False)
     return clipped
 
+@st.cache_data
 def basin_mean(da: xr.DataArray, basin_gdf: gpd.GeoDataFrame) -> float:
     """Area-unweighted mean over masked pixels (nanmean)."""
     m = mask_to_basin(da, basin_gdf)
@@ -59,6 +66,7 @@ def folium_map_with_raster(da_masked: xr.DataArray, basin_gdf: gpd.GeoDataFrame,
     folium.LayerControl().add_to(m)
     return m
 
+@st.cache_data
 def combine_basin_boundaries(basins: Dict[str, str]) -> gpd.GeoDataFrame:
     """Given basin_name -> shapefile path, return a combined GeoDataFrame with a 'name' column."""
     import pandas as pd

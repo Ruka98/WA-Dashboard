@@ -6,6 +6,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 import xarray as xr
 import geopandas as gpd
+import streamlit as st
 
 VAR_HINTS = {
     "P": ["P", "precip", "precipitation"],
@@ -107,18 +108,27 @@ def find_basins(data_root: str) -> Dict[str, BasinPaths]:
 
     return basins
 
+@st.cache_resource
 def open_ds(path: str) -> xr.Dataset:
+    """Open a netCDF file as a singleton xarray Dataset object."""
     return xr.open_dataset(path)
 
-def load_shapefile(path: str):
+@st.cache_data
+def load_shapefile(path: str) -> gpd.GeoDataFrame:
+    """Load a shapefile into a GeoDataFrame, ensuring EPSG:4326 projection."""
     gdf = gpd.read_file(path)
     if gdf.crs is None:
-        gdf.set_crs(4326, inplace=True)
+        gdf.set_crs("EPSG:4326", inplace=True)
     else:
-        gdf = gdf.to_crs(4326)
+        gdf = gdf.to_crs("EPSG:4326")
     return gdf
 
+@st.cache_data
 def parse_yearly_csv(csv_path: str) -> pd.DataFrame:
+    """
+    Load and parse a yearly summary CSV into a DataFrame.
+    Handles two possible formats: single-column delimited or multi-column.
+    """
     df = pd.read_csv(csv_path)
     # expect a single column "CLASS;SUBCLASS;VARIABLE;VALUE"
     if df.shape[1] == 1:

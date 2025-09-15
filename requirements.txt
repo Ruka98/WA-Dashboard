@@ -13,4 +13,4 @@ plotly==5.23.0
 folium==0.17.0
 streamlit-folium==0.22.0
 rapidfuzz==3.9.3
-streamlit-annotated-text==4.0.0
+annotated-text==2.0.1
